@@ -1,9 +1,15 @@
 let s = null;
 let colors = [
-    '#617db4',
-    '#668f3c',
-    '#c6583e',
-    '#b956af'
+    '#e89304',
+    '#fbb943',
+    '#ffa959',
+    '#AFCF8A',
+    '#b274de',
+    '#B095C0',
+    '#fe2f3f',
+    '#53e8fa',
+    '#9DB09E',
+    '#4af85c'
 ];
 
 let types = [
@@ -28,6 +34,36 @@ $(function () {
             alert('Busqueda invalida')
         }
     });
+
+    $('#gephi').click(function () {
+        s.toGEXF({
+            download: true,
+            filename: 'myGraph.gexf',
+            nodeAttributes: 'data',
+            edgeAttributes: 'data.properties',
+            renderer: s.renderers[0],
+            creator: 'Sigma.js',
+            description: 'This is an awesome graph!'
+        });
+    });
+
+    $('#json').click(function () {
+        window.open("/search/" + $('#tema').val());
+    });
+
+    $('#xlsx').click(function () {
+        // Get the graph:
+        s.toXLSX({
+            nodesAttributes: 'data',
+            nodesCategories: 'categories',
+            nodesCategoriesName: 'categories',
+            edgesAttributes: 'data.properties',
+            edgesCategories: 'data.type',
+            edgesCategoriesName: 'type',
+            filename: 'myGraph.xlsx'
+        });
+    });
+
 
     function getNetwork(tema) {
         $.ajax({
@@ -63,7 +99,14 @@ $(function () {
                 x: Math.random(),
                 y: Math.random(),
                 size: Math.random(),
-                color: colors[Math.floor(Math.random() * colors.length)]
+                color: colors[Math.floor(Math.random() * colors.length)],
+                data: {
+                    aString: 'abc ' + 1,
+                    aBoolean: true,
+                    anInteger: 1,
+                    aFloat: Math.random(),
+                    anArray: [1, 2, 3]
+                }
             });
         }
         console.log(g);
@@ -75,7 +118,17 @@ $(function () {
                 type: types[Math.round(Math.random() * 8)],
                 size: Math.random(),
                 label: 'Edge ' + edge.id,
-                hover_color: '#fff'
+                hover_color: '#00d8ff',
+                color: '#767676',
+                data: {
+                    properties: {
+                        aString: 'abc ' + 1,
+                        aBoolean: false,
+                        anInteger: 1,
+                        aFloat: Math.random(),
+                        anArray: [1, 2, 3]
+                    }
+                }
             });
         }
 
