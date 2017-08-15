@@ -28,8 +28,8 @@
 
     size = (edge.hover) ?
       settings('edgeHoverSizeRatio') * size : size;
-    var aSize = size * 2.5,
-        d = Math.sqrt(Math.pow(tX - sX, 2) + Math.pow(tY - sY, 2)),
+    var aSize = Math.max(size * 2.5, settings('minArrowSize')),
+        d = Math.sqrt((tX - sX) * (tX - sX) + (tY - sY) * (tY - sY)),
         aX = sX + (tX - sX) * (d - aSize - tSize) / d,
         aY = sY + (tY - sY) * (d - aSize - tSize) / d,
         vX = (tX - sX) * aSize / d,

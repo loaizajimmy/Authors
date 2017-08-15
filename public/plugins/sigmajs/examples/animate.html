@@ -9,7 +9,6 @@
 <script src="../src/classes/sigma.classes.graph.js"></script>
 <script src="../src/classes/sigma.classes.camera.js"></script>
 <script src="../src/classes/sigma.classes.quad.js"></script>
-<script src="../src/classes/sigma.classes.edgequad.js"></script>
 <script src="../src/captors/sigma.captors.mouse.js"></script>
 <script src="../src/captors/sigma.captors.touch.js"></script>
 <script src="../src/renderers/sigma.renderers.canvas.js"></script>
@@ -37,6 +36,7 @@
 <script src="../src/renderers/svg/sigma.svg.nodes.def.js"></script>
 <script src="../src/renderers/svg/sigma.svg.edges.def.js"></script>
 <script src="../src/renderers/svg/sigma.svg.edges.curve.js"></script>
+<script src="../src/renderers/svg/sigma.svg.edges.curvedArrow.js"></script>
 <script src="../src/renderers/svg/sigma.svg.labels.def.js"></script>
 <script src="../src/renderers/svg/sigma.svg.hovers.def.js"></script>
 <script src="../src/middlewares/sigma.middlewares.rescale.js"></script>
@@ -124,6 +124,9 @@ s = new sigma({
   }
 });
 
+s.bind('animate.start', function(e) { console.log(e.type); });
+s.bind('animate.end', function(e) { console.log(e.type); });
+
 setInterval(function() {
   var prefix = ['grid_', 'circular_'][step = +!step];
   sigma.plugins.animate(
@@ -133,6 +136,9 @@ setInterval(function() {
       y: prefix + 'y',
       size: prefix + 'size',
       color: prefix + 'color'
+    },
+    {
+      duration: 1000
     }
   );
 }, 2000);

@@ -14,7 +14,7 @@
      */
     // {boolean} Indicates if the data have to be cloned in methods to add
     //           nodes or edges.
-    clone: true,
+    clone: false,
     // {boolean} Indicates if nodes "id" values and edges "id", "source" and
     //           "target" values must be set as immutable.
     immutable: true,
@@ -40,6 +40,9 @@
     defaultNodeColor: '#000',
     // {string}
     defaultLabelSize: 14,
+    // {string} Label position relative to its node. Available values:
+    //          "right", "left", "top", "bottom", "center", "inside"
+    labelAlignment: 'right',
     // {string} Indicates how to choose the edges color. Available values:
     //          "source", "target", "default"
     edgeColor: 'source',
@@ -59,11 +62,14 @@
     labelSizeRatio: 1,
     // {number} The minimum size a node must have to see its label displayed.
     labelThreshold: 8,
+    // {number} Maximum length of a node's label (in characters). Displays the label on several lines. 0 disables it
+    // (the whole label is displayed on one line)
+    maxNodeLabelLineLength: 0,
     // {number} The oversampling factor used in WebGL renderer.
     webglOversamplingRatio: 2,
-    // {number} The size of the border of hovered nodes.
-    borderSize: 0,
-    // {number} The default hovered node border's color.
+    // {number} The size of the border of nodes.
+    nodeBorderSize: 0,
+    // {number} The default node border's color.
     defaultNodeBorderColor: '#000',
     // {number} The hovered node's label font. If not specified, will heritate
     //          the "font" value.
@@ -119,8 +125,17 @@
     //           several frames.
     canvasEdgesBatchSize: 500,
     webglEdgesBatchSize: 1000,
-
-
+    // {boolean} Approximate labels width instead of using canvas.measureText
+    approximateLabelWidth: true,
+    // {boolean} Hide edges from nodes too far away
+    edgesClippingWithNodes: true,
+    // {number} if sigma.canvas.edges.autoCurve is called, set relative
+    // distance between curved parallel edges (i.e. edges with same
+    // extremities). Smaller value increases distances.
+    autoCurveRatio: 1,
+    // {boolean} if sigma.canvas.edges.autoCurve is called, sort edges by
+    // direction.
+    autoCurveSortByDirection: true,
 
 
     /**
@@ -151,6 +166,9 @@
      * CAPTORS SETTINGS:
      * *****************
      */
+    // {boolean} If true, the user will need to click on the visualization element
+    // in order to focus it
+    clickToFocus: false,
     // {boolean}
     touchEnabled: true,
     // {boolean}
@@ -172,6 +190,8 @@
     zoomMin: 0.0625,
     // {number} The maximum zooming level.
     zoomMax: 2,
+    // {boolean} Defines whether the zoom focuses on the mouse location.
+    zoomOnLocation: true,
     // {number} The duration of animations following a mouse scrolling.
     mouseZoomDuration: 200,
     // {number} The duration of animations following a mouse double click.
@@ -198,10 +218,6 @@
      * GLOBAL SETTINGS:
      * ****************
      */
-    // {boolean} Determines whether the instance has to refresh itself
-    //           automatically when a "resize" event is dispatched from the
-    //           window object.
-    autoResize: true,
     // {boolean} Determines whether the "rescale" middleware has to be called
     //           automatically for each camera on refresh.
     autoRescale: true,
@@ -221,6 +237,16 @@
     //           rendering.
     skipErrors: false,
 
+
+
+    /**
+     * SPATIAL INDEXING SETTINGS:
+     * ****************
+     */
+    // {number} Max height of the node quad tree.
+    nodeQuadtreeMaxLevel: 4,
+    // {number} Max height of the edge quad tree.
+    edgeQuadtreeMaxLevel: 4,
 
 
 

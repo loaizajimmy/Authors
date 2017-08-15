@@ -23,11 +23,11 @@ body {
 #Title {
     background: transparent;
 }
+
 #Buscador{
-    padding-top: 100px;
+    padding-top: 50px;
 }
 #graph{
-    background: cornsilk;
+    background: transparent;
     height: 100%;
-    border: 1px solid red;
 }

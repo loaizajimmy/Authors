@@ -3,6 +3,17 @@
 
   var __instances = {};
 
+  // Deal with resize.  skip this for node.js apps
+  if (typeof window != 'undefined')
+    window.addEventListener('resize', function() {
+      for (var key in __instances) {
+        if (__instances.hasOwnProperty(key)) {
+          var instance = __instances[key];
+          instance.refresh();
+        }
+      }
+    });
+
   /**
    * This is the sigma instances constructor. One instance of sigma represent
    * one graph. It is possible to represent this grapĥ with several renderers
@@ -74,8 +85,7 @@
 
     // Private attributes:
     // *******************
-    var _self = this,
-        _conf = conf || {};
+    var _conf = conf || {};
 
     // Little shortcut:
     // ****************
@@ -176,10 +186,7 @@
         'doubleClickNodes',
         'rightClickNode',
         'rightClickNodes',
-        'overNode',
-        'overNodes',
-        'outNode',
-        'outNodes',
+        'hovers',
         'downNode',
         'downNodes',
         'upNode',
@@ -223,11 +230,6 @@
       this.refresh();
     }
 
-    // Deal with resize:
-    window.addEventListener('resize', function() {
-      if (_self.settings)
-        _self.refresh();
-    });
   };
 
 
@@ -266,7 +268,8 @@
     }
 
     camera.bind('coordinatesUpdated', function(e) {
-      self.renderCamera(camera, camera.isAnimated);
+      self.dispatchEvent('coordinatesUpdated');
+      self.renderCamera(camera);
     });
 
     this.renderersPerCamera[id] = [];
@@ -401,14 +404,7 @@
           'rightClickNodes',
           'rightClickEdge',
           'rightClickEdges',
-          'overNode',
-          'overNodes',
-          'overEdge',
-          'overEdges',
-          'outNode',
-          'outNodes',
-          'outEdge',
-          'outEdges',
+          'hovers',
           'downNode',
           'downNodes',
           'downEdge',
@@ -529,8 +525,9 @@
         );
 
         // Refresh quadtree:
-        c.quadtree.index(this.graph.nodes(), {
+        c.quadtree.index(this.graph, {
           prefix: c.readPrefix,
+          maxLevel: c.settings('nodeQuadtreeMaxLevel'),
           bounds: {
             x: bounds.minX,
             y: bounds.minY,
@@ -543,10 +540,12 @@
         if (
           c.edgequadtree !== undefined &&
           c.settings('drawEdges') &&
-          c.settings('enableEdgeHovering')
+          (c.settings('enableEdgeHovering') ||
+            c.settings('edgesClippingWithNodes'))
         ) {
           c.edgequadtree.index(this.graph, {
             prefix: c.readPrefix,
+            maxLevel: c.settings('edgeQuadtreeMaxLevel'),
             bounds: {
               x: bounds.minX,
               y: bounds.minY,
@@ -585,25 +584,24 @@
    * @return {sigma} Returns the instance itself.
    */
   sigma.prototype.render = function() {
-    var i,
-        l,
-        a,
+    var l,
+        i,
         prefix = 0;
 
     // Call each renderer:
-    a = Object.keys(this.renderers);
-    for (i = 0, l = a.length; i < l; i++)
+    for (i in this.renderers)
       if (this.settings('skipErrors'))
         try {
-          this.renderers[a[i]].render();
+          this.renderers[i].render();
         } catch (e) {
           if (this.settings('verbose'))
             console.log(
-              'Warning: The renderer "' + a[i] + '" crashed on ".render()"'
+              'Warning: The renderer "' + this.renderers[i] +
+              '" crashed on ".render()"'
             );
         }
       else
-        this.renderers[a[i]].render();
+        this.renderers[i].render();
 
     return this;
   };
@@ -634,7 +632,7 @@
           } catch (e) {
             if (this.settings('verbose'))
               console.log(
-                'Warning: The renderer "' + a[i].id + '" crashed on ".render()"'
+                'Warning: The renderer "'+ a[i].id + '" crashed on ".render()"'
               );
           }
         else
@@ -649,9 +647,7 @@
             } catch (e) {
               if (this.settings('verbose'))
                 console.log(
-                  'Warning: The renderer "' +
-                    a[i].id +
-                    '" crashed on ".render()"'
+                  'Warning: The renderer "'+a[i].id +'" crashed on ".render()"'
                 );
             }
           else
@@ -722,9 +718,13 @@
   /**
    * The current version of sigma:
    */
-  sigma.version = '1.2.0';
+  sigma.version = '1.5.2';
 
 
+  /**
+   * Disable ES6 features if true:
+   */
+  sigma.forceES5 = false;
 
 
   /**

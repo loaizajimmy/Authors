@@ -10,19 +10,23 @@ test('Basic manipulation', function() {
           {
             id: 'n0',
             label: 'Node 0',
-            myNodeAttr: 123
+            myNodeAttr: 123,
+            size: 1
           },
           {
             id: 'n1',
-            label: 'Node 1'
+            label: 'Node 1',
+            size: 1
           },
           {
             id: 'n2',
-            label: 'Node 2'
+            label: 'Node 2',
+            size: 1
           },
           {
             id: 'n3',
-            label: 'Node 3'
+            label: 'Node 3',
+            size: 1
           }
         ],
         edges: [
@@ -30,27 +34,32 @@ test('Basic manipulation', function() {
             id: 'e0',
             source: 'n0',
             target: 'n1',
-            myEdgeAttr: 123
+            myEdgeAttr: 123,
+            size: 1
           },
           {
             id: 'e1',
             source: 'n1',
-            target: 'n2'
+            target: 'n2',
+            size: 1
           },
           {
             id: 'e2',
             source: 'n1',
-            target: 'n3'
+            target: 'n3',
+            size: 1
           },
           {
             id: 'e3',
             source: 'n2',
-            target: 'n3'
+            target: 'n3',
+            size: 1
           },
           {
             id: 'e4',
             source: 'n2',
-            target: 'n2'
+            target: 'n2',
+            size: 1
           }
         ]
       };
@@ -347,7 +356,7 @@ test('Methods and attached functions', function() {
   );
 
   sigma.classes.graph.addMethod('getNodeLabel', function(nId) {
-    return (this.nodesIndex[nId] || {}).label;
+    return (this.nodesIndex.get(nId) || {}).label;
   });
 
   strictEqual(
@@ -454,14 +463,71 @@ test('Builtin indexes', function() {
       };
 
   sigma.classes.graph.addMethod('retrieveIndexes', function() {
-    return {
-      'inIndex': this.inNeighborsIndex,
-      'outIndex': this.outNeighborsIndex,
-      'allIndex': this.allNeighborsIndex,
-      'inCount': this.inNeighborsCount,
-      'outCount': this.outNeighborsCount,
-      'allCount': this.allNeighborsCount
-    }
+    var res = {
+      'inIndex': Object.create(null),
+      'outIndex': Object.create(null),
+      'allIndex': Object.create(null),
+      'inCount': Object.create(null),
+      'outCount': Object.create(null),
+      'allCount': Object.create(null)
+    };
+
+    this.inNeighborsIndex.forEach(function(map, target) {
+      if (map.size) {
+        res.inIndex[target] = Object.create(null);
+        map.forEach(function(map2, source) {
+          if (!res.inIndex[target][source]) {
+            res.inIndex[target][source] = Object.create(null);
+          }
+          if (map2.size) {
+            map2.forEach(function(edge, edgeid) {
+              res.inIndex[target][source][edgeid] = edge;
+            });
+          }
+        });
+      }
+    });
+    this.outNeighborsIndex.forEach(function(map, source) {
+      if (map.size) {
+        res.outIndex[source] = Object.create(null);
+        map.forEach(function(map2, target) {
+          if (!res.outIndex[source][target]) {
+            res.outIndex[source][target] = Object.create(null);
+          }
+          if (map2.size) {
+            map2.forEach(function(edge, edgeid) {
+              res.outIndex[source][target][edgeid] = edge;
+            });
+          }
+        });
+      }
+    });
+    this.allNeighborsIndex.forEach(function(map, target) {
+      if (map.size) {
+        res.allIndex[target] = Object.create(null);
+        map.forEach(function(map2, source) {
+          if (!res.allIndex[target][source]) {
+            res.allIndex[target][source] = Object.create(null);
+          }
+          if (map2.size) {
+            map2.forEach(function(edge, edgeid) {
+              res.allIndex[target][source][edgeid] = edge;
+            });
+          }
+        });
+      }
+    });
+    this.inNeighborsIndex.forEach(function(val, key) {
+      res.inCount[key] = val.size;
+    });
+    this.outNeighborsIndex.forEach(function(val, key) {
+      res.outCount[key] = val.size;
+    });
+    this.allNeighborsIndex.forEach(function(val, key) {
+      res.allCount[key] = val.size;
+    });
+
+    return res;
   });
 
   var g = new sigma.classes.graph();
@@ -472,12 +538,12 @@ test('Builtin indexes', function() {
   deepEqual(
     index['inIndex'],
     {
-      n0: {},
       n1: {
         n0: {
           e0: {
             id: "e0",
             myEdgeAttr: 123,
+            size: 1,
             source: "n0",
             target: "n1"
           }
@@ -487,6 +553,7 @@ test('Builtin indexes', function() {
         n1: {
           e1: {
             id: "e1",
+            size: 1,
             source: "n1",
             target: "n2"
           }
@@ -514,6 +581,7 @@ test('Builtin indexes', function() {
           e0: {
             id: "e0",
             myEdgeAttr: 123,
+            size: 1,
             source: "n0",
             target: "n1"
           }
@@ -523,12 +591,12 @@ test('Builtin indexes', function() {
         n2: {
           e1: {
             id: "e1",
+            size: 1,
             source: "n1",
             target: "n2"
           }
         }
-      },
-      n2: {}
+      }
     },
     'Outcoming index up to date'
   );
@@ -551,6 +619,7 @@ test('Builtin indexes', function() {
           e0: {
             id: "e0",
             myEdgeAttr: 123,
+            size: 1,
             source: "n0",
             target: "n1"
           }
@@ -561,6 +630,7 @@ test('Builtin indexes', function() {
           e0: {
             id: "e0",
             myEdgeAttr: 123,
+            size: 1,
             source: "n0",
             target: "n1"
           }
@@ -568,6 +638,7 @@ test('Builtin indexes', function() {
         n2: {
           e1: {
             id: "e1",
+            size: 1,
             source: "n1",
             target: "n2"
           }
@@ -577,6 +648,7 @@ test('Builtin indexes', function() {
         n1: {
           e1: {
             id: "e1",
+            size: 1,
             source: "n1",
             target: "n2"
           }
@@ -597,16 +669,17 @@ test('Builtin indexes', function() {
   );
 
   g.dropNode('n2');
+  index = g.retrieveIndexes();
 
   deepEqual(
     index['inIndex'],
     {
-      n0: {},
       n1: {
         n0: {
           e0: {
             id: "e0",
             myEdgeAttr: 123,
+            size: 1,
             source: "n0",
             target: "n1"
           }
@@ -633,12 +706,12 @@ test('Builtin indexes', function() {
           e0: {
             id: "e0",
             myEdgeAttr: 123,
+            size: 1,
             source: "n0",
             target: "n1"
           }
         }
-      },
-      n1: {}
+      }
     },
     'Outcoming index up to date after having dropped a node'
   );
@@ -660,6 +733,7 @@ test('Builtin indexes', function() {
           e0: {
             id: "e0",
             myEdgeAttr: 123,
+            size: 1,
             source: "n0",
             target: "n1"
           }
@@ -670,6 +744,7 @@ test('Builtin indexes', function() {
           e0: {
             id: "e0",
             myEdgeAttr: 123,
+            size: 1,
             source: "n0",
             target: "n1"
           }
@@ -689,13 +764,11 @@ test('Builtin indexes', function() {
   );
 
   g.dropEdge('e0');
+  index = g.retrieveIndexes();
 
   deepEqual(
     index['inIndex'],
-    {
-      n0: {},
-      n1: {}
-    },
+    {},
     'Incoming index up to date after having dropped an edge'
   );
 
@@ -710,10 +783,7 @@ test('Builtin indexes', function() {
 
   deepEqual(
     index['outIndex'],
-    {
-      n0: {},
-      n1: {}
-    },
+    {},
     'Outcoming index up to date after having dropped an edge'
   );
 
@@ -728,10 +798,7 @@ test('Builtin indexes', function() {
 
   deepEqual(
     index['allIndex'],
-    {
-      n0: {},
-      n1: {}
-    },
+    {},
     'Full index up to date after having dropped an edge'
   );
 

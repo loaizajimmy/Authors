@@ -9,7 +9,6 @@
 <script src="../src/classes/sigma.classes.graph.js"></script>
 <script src="../src/classes/sigma.classes.camera.js"></script>
 <script src="../src/classes/sigma.classes.quad.js"></script>
-<script src="../src/classes/sigma.classes.edgequad.js"></script>
 <script src="../src/captors/sigma.captors.mouse.js"></script>
 <script src="../src/captors/sigma.captors.touch.js"></script>
 <script src="../src/renderers/sigma.renderers.canvas.js"></script>
@@ -37,6 +36,7 @@
 <script src="../src/renderers/svg/sigma.svg.nodes.def.js"></script>
 <script src="../src/renderers/svg/sigma.svg.edges.def.js"></script>
 <script src="../src/renderers/svg/sigma.svg.edges.curve.js"></script>
+<script src="../src/renderers/svg/sigma.svg.edges.curvedArrow.js"></script>
 <script src="../src/renderers/svg/sigma.svg.labels.def.js"></script>
 <script src="../src/renderers/svg/sigma.svg.hovers.def.js"></script>
 <script src="../src/middlewares/sigma.middlewares.rescale.js"></script>
@@ -46,11 +46,20 @@
 <script src="../src/misc/sigma.misc.bindDOMEvents.js"></script>
 <script src="../src/misc/sigma.misc.drawHovers.js"></script>
 <!-- END SIGMA IMPORTS -->
-<script src="../plugins/sigma.renderers.parallelEdges/utils.js"></script>
-<script src="../plugins/sigma.renderers.parallelEdges/sigma.canvas.edges.curve.js"></script>
-<script src="../plugins/sigma.renderers.parallelEdges/sigma.canvas.edges.curvedArrow.js"></script>
-<script src="../plugins/sigma.renderers.parallelEdges/sigma.canvas.edgehovers.curve.js"></script>
-<script src="../plugins/sigma.renderers.parallelEdges/sigma.canvas.edgehovers.curvedArrow.js"></script>
+<script src="../plugins/sigma.renderers.linkurious/settings.js"></script>
+<script src="../plugins/sigma.renderers.linkurious/canvas/sigma.canvas.labels.def.js"></script>
+<script src="../plugins/sigma.renderers.linkurious/canvas/sigma.canvas.hovers.def.js"></script>
+<script src="../plugins/sigma.renderers.linkurious/canvas/sigma.canvas.nodes.def.js"></script>
+<script src="../plugins/sigma.renderers.linkurious/canvas/sigma.canvas.nodes.cross.js"></script>
+<script src="../plugins/sigma.renderers.linkurious/canvas/sigma.canvas.nodes.diamond.js"></script>
+<script src="../plugins/sigma.renderers.linkurious/canvas/sigma.canvas.nodes.equilateral.js"></script>
+<script src="../plugins/sigma.renderers.linkurious/canvas/sigma.canvas.nodes.square.js"></script>
+<script src="../plugins/sigma.renderers.linkurious/canvas/sigma.canvas.nodes.star.js"></script>
+<script src="../plugins/sigma.renderers.linkurious/canvas/sigma.canvas.edges.def.js"></script>
+<script src="../plugins/sigma.renderers.linkurious/canvas/sigma.canvas.edges.curve.js"></script>
+<script src="../plugins/sigma.renderers.linkurious/canvas/sigma.canvas.edges.arrow.js"></script>
+<script src="../plugins/sigma.renderers.linkurious/canvas/sigma.canvas.edges.curvedArrow.js"></script>
+<script src="../plugins/sigma.renderers.linkurious/canvas/sigma.canvas.edges.autoCurve.js"></script>
 <div id="container">
   <style>
     #graph-container {
@@ -94,9 +103,8 @@ for (i = 0; i < E; i++)
     label: 'Edge ' + i,
     source: 'n0',
     target: 'n1',
-    size: Math.random(),
-    color: '#ccc',
-    type: 'curvedArrow',
+    size: 1,
+    type: 'arrow',
     count: i
   });
 
@@ -106,6 +114,13 @@ s = new sigma({
   renderer: {
     container: document.getElementById('graph-container'),
     type: 'canvas'
+  },
+  settings: {
+    autoCurveSortByDirection: true
   }
 });
+
+// Curve parallel edges:
+sigma.canvas.edges.autoCurve(s);
+s.refresh();
 </script>

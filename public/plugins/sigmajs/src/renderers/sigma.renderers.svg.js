@@ -44,6 +44,7 @@
       nodes: {},
       edges: {},
       labels: {},
+      edgelabels: {},
       hovers: {}
     };
     this.measurementCanvas = null;
@@ -109,6 +110,8 @@
   sigma.renderers.svg.prototype.render = function(options) {
     options = options || {};
 
+    this.dispatchEvent('beforeRender');
+
     var a,
         i,
         k,
@@ -128,6 +131,8 @@
         drawEdges = this.settings(options, 'drawEdges'),
         drawNodes = this.settings(options, 'drawNodes'),
         drawLabels = this.settings(options, 'drawLabels'),
+        drawEdgeLabels = this.settings(options, 'drawEdgeLabels'),
+        defaultEdgeType = this.settings(options, 'defaultEdgeType'),
         embedSettings = this.settings.embedObjects(options, {
           prefix: this.options.prefix,
           forceLabels: this.options.forceLabels
@@ -153,6 +158,7 @@
     this.hideDOMElements(this.domElements.nodes);
     this.hideDOMElements(this.domElements.edges);
     this.hideDOMElements(this.domElements.labels);
+    this.hideDOMElements(this.domElements.edgelabels);
 
     // Find which nodes are on screen
     this.edgesOnScreen = [];
@@ -194,13 +200,15 @@
           this.domElements.groups.nodes.appendChild(e);
 
           // Label
-          e = (subrenderers[a[i].type] || subrenderers.def).create(
-            a[i],
-            embedSettings
-          );
+          if (drawLabels) {
+            e = (subrenderers[a[i].type] || subrenderers.def).create(
+              a[i],
+              embedSettings
+            );
 
-          this.domElements.labels[a[i].id] = e;
-          this.domElements.groups.labels.appendChild(e);
+            this.domElements.labels[a[i].id] = e;
+            this.domElements.groups.labels.appendChild(e);
+          }
         }
       }
 
@@ -219,16 +227,19 @@
         );
 
         // Label
-        (subrenderers[a[i].type] || subrenderers.def).update(
-          a[i],
-          this.domElements.labels[a[i].id],
-          embedSettings
-        );
+        if (drawLabels) {
+          (subrenderers[a[i].type] || subrenderers.def).update(
+            a[i],
+            this.domElements.labels[a[i].id],
+            embedSettings
+          );
+        }
       }
 
     // Display edges
     //---------------
     renderers = sigma.svg.edges;
+    subrenderers = sigma.svg.edges.labels;
 
     //-- First we create the edges which are not already created
     if (drawEdges)
@@ -237,7 +248,10 @@
           source = nodes(a[i].source);
           target = nodes(a[i].target);
 
-          e = (renderers[a[i].type] || renderers.def).create(
+          e = (renderers[a[i].type] ||
+            renderers[defaultEdgeType] ||
+            renderers.def
+          ).create(
             a[i],
             source,
             target,
@@ -246,6 +260,20 @@
 
           this.domElements.edges[a[i].id] = e;
           this.domElements.groups.edges.appendChild(e);
+
+          // Label
+          if (drawEdgeLabels) {
+
+            e = (subrenderers[a[i].type] ||
+              subrenderers[defaultEdgeType]  ||
+              subrenderers.def
+            ).create(
+              a[i],
+              embedSettings
+            );
+            this.domElements.edgelabels[a[i].id] = e;
+            this.domElements.groups.edgelabels.appendChild(e);
+          }
         }
        }
 
@@ -255,13 +283,30 @@
         source = nodes(a[i].source);
         target = nodes(a[i].target);
 
-        (renderers[a[i].type] || renderers.def).update(
+        (renderers[a[i].type] ||
+          renderers[defaultEdgeType] ||
+          renderers.def
+        ).update(
           a[i],
           this.domElements.edges[a[i].id],
           source,
           target,
           embedSettings
         );
+
+        // Label
+        if (drawEdgeLabels) {
+          (subrenderers[a[i].type] ||
+            subrenderers[defaultEdgeType] ||
+            subrenderers.def
+          ).update(
+            a[i],
+            source,
+            target,
+            this.domElements.edgelabels[a[i].id],
+            embedSettings
+          );
+        }
        }
 
     this.dispatchEvent('render');
@@ -300,7 +345,7 @@
     this.domElements.graph = this.container.appendChild(dom);
 
     // Creating groups
-    var groups = ['edges', 'nodes', 'labels', 'hovers'];
+    var groups = ['edges', 'nodes', 'edgelabels', 'labels', 'hovers'];
     for (i = 0, l = groups.length; i < l; i++) {
       g = document.createElementNS(this.settings('xmlns'), 'g');
 
@@ -346,8 +391,8 @@
         self = this,
         hoveredNode;
 
-    function overNode(e) {
-      var node = e.data.node,
+    function updateHovers(e) {
+      var node,
           embedSettings = self.settings.embedObjects({
             prefix: prefix
           });
@@ -355,40 +400,35 @@
       if (!embedSettings('enableHovering'))
         return;
 
-      var hover = (renderers[node.type] || renderers.def).create(
-        node,
-        self.domElements.nodes[node.id],
-        self.measurementCanvas,
-        embedSettings
-      );
+      if (e.data.enter.nodes.length > 0) { // over
+        node = e.data.enter.nodes[0];
+        var hover = (renderers[node.type] || renderers.def).create(
+          node,
+          self.domElements.nodes[node.id],
+          self.measurementCanvas,
+          embedSettings
+        );
 
-      self.domElements.hovers[node.id] = hover;
+        self.domElements.hovers[node.id] = hover;
 
-      // Inserting the hover in the dom
-      self.domElements.groups.hovers.appendChild(hover);
-      hoveredNode = node;
-    }
+        // Inserting the hover in the dom
+        self.domElements.groups.hovers.appendChild(hover);
+        hoveredNode = node;
+      } else if (e.data.leave.nodes.length > 0) { // out
+        node = e.data.leave.nodes[0];
 
-    function outNode(e) {
-      var node = e.data.node,
-          embedSettings = self.settings.embedObjects({
-            prefix: prefix
-          });
+        // Deleting element
+        self.domElements.groups.hovers.removeChild(
+          self.domElements.hovers[node.id]
+        );
+        hoveredNode = null;
+        delete self.domElements.hovers[node.id];
 
-      if (!embedSettings('enableHovering'))
-        return;
-
-      // Deleting element
-      self.domElements.groups.hovers.removeChild(
-        self.domElements.hovers[node.id]
-      );
-      hoveredNode = null;
-      delete self.domElements.hovers[node.id];
-
-      // Reinstate
-      self.domElements.groups.nodes.appendChild(
-        self.domElements.nodes[node.id]
-      );
+        // Reinstate
+        self.domElements.groups.nodes.appendChild(
+          self.domElements.nodes[node.id]
+        );
+      }
     }
 
     // OPTIMIZE: perform a real update rather than a deletion
@@ -420,8 +460,7 @@
     }
 
     // Binding events
-    this.bind('overNode', overNode);
-    this.bind('outNode', outNode);
+    this.bind('hovers', updateHovers);
 
     // Update on render
     this.bind('render', update);
@@ -437,8 +476,7 @@
    */
   sigma.renderers.svg.prototype.resize = function(w, h) {
     var oldWidth = this.width,
-        oldHeight = this.height,
-        pixelRatio = 1;
+        oldHeight = this.height;
 
     if (w !== undefined && h !== undefined) {
       this.width = w;
@@ -446,24 +484,15 @@
     } else {
       this.width = this.container.offsetWidth;
       this.height = this.container.offsetHeight;
-
-      w = this.width;
-      h = this.height;
     }
 
     if (oldWidth !== this.width || oldHeight !== this.height) {
-      this.domElements.graph.style.width = w + 'px';
-      this.domElements.graph.style.height = h + 'px';
-
-      if (this.domElements.graph.tagName.toLowerCase() === 'svg') {
-        this.domElements.graph.setAttribute('width', (w * pixelRatio));
-        this.domElements.graph.setAttribute('height', (h * pixelRatio));
-      }
+      this.domElements.graph.style.width = this.width + 'px';
+      this.domElements.graph.style.height = this.height + 'px';
     }
 
     return this;
   };
-
 
   /**
    * The labels, nodes and edges renderers are stored in the three following
@@ -476,4 +505,5 @@
   sigma.utils.pkg('sigma.svg.nodes');
   sigma.utils.pkg('sigma.svg.edges');
   sigma.utils.pkg('sigma.svg.labels');
+  sigma.utils.pkg('sigma.svg.edgelabels');
 }).call(this);

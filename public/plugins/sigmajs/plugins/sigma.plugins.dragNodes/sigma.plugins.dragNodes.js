@@ -1,7 +1,7 @@
 /**
  * This plugin provides a method to drag & drop nodes. Check the
- * sigma.plugins.dragNodes function doc or the examples/basic.html &
- * examples/api-candy.html code samples to know more.
+ * sigma.plugins.dragNodes function doc or the examples/drag-nodes.html code
+ * sample to know more.
  */
 (function() {
   'use strict';
@@ -30,55 +30,68 @@
    *
    * Recognized parameters:
    * **********************
-   * @param  {sigma}    s        The related sigma instance.
-   * @param  {renderer} renderer The related renderer instance.
+   * @param  {sigma}                      s        The related sigma instance.
+   * @param  {renderer}                   renderer The related renderer instance.
+   * @param  {?sigma.plugins.activeState} a        The activeState plugin instance.
    */
-  function DragNodes(s, renderer) {
+  function DragNodes(s, renderer, a) {
     sigma.classes.dispatcher.extend(this);
 
     // A quick hardcoded rule to prevent people from using this plugin with the
     // WebGL renderer (which is impossible at the moment):
-    // if (
-    //   sigma.renderers.webgl &&
-    //   renderer instanceof sigma.renderers.webgl
-    // )
-    //   throw new Error(
-    //     'The sigma.plugins.dragNodes is not compatible with the WebGL renderer'
-    //   );
+    if (
+      sigma.renderers.webgl &&
+      renderer instanceof sigma.renderers.webgl
+    )
+      throw new Error(
+        'The sigma.plugins.dragNodes is not compatible with the WebGL renderer'
+      );
 
     // Init variables:
     var _self = this,
       _s = s,
+      _a = a,
       _body = document.body,
       _renderer = renderer,
-      _mouse = renderer.container.lastChild,
-      _camera = renderer.camera,
+      _mouse = renderer.container.getElementsByClassName('sigma-mouse')[0],
+      _prefix = renderer.options.prefix,
       _node = null,
-      _prefix = '',
-      _hoverStack = [],
-      _hoverIndex = {},
+      _draggingNode = null,
+      _hoveredNode = null,
       _isMouseDown = false,
       _isMouseOverCanvas = false,
-      _drag = false;
+      _drag = false,
+      _sticky = true,
+      _enabled = true;
 
     if (renderer instanceof sigma.renderers.svg) {
         _mouse = renderer.container.firstChild;
     }
 
-    // It removes the initial substring ('read_') if it's a WegGL renderer.
-    if (renderer instanceof sigma.renderers.webgl) {
-      _prefix = renderer.options.prefix.substr(5);
-    } else {
-      _prefix = renderer.options.prefix;
-    }
-
-    renderer.bind('overNode', nodeMouseOver);
-    renderer.bind('outNode', treatOutNode);
+    renderer.bind('hovers', nodeMouseOver);
+    renderer.bind('hovers', treatOutNode);
     renderer.bind('click', click);
 
-    _s.bind('kill', function() {
-      _self.unbindAll();
-    });
+    /**
+     * Enable dragging and events.
+     */
+    this.enable = function() {
+      _enabled = true;
+    }
+
+    /**
+     * Disable dragging and events.
+     */
+    this.disable = function() {
+      _enabled = false;
+      _node = null,
+      _draggingNode = null,
+      _hoveredNode = null;
+      _isMouseDown = false,
+      _isMouseOverCanvas = false,
+      _drag = false,
+      _sticky = true;
+    }
 
     /**
      * Unbind all event listeners.
@@ -87,8 +100,8 @@
       _mouse.removeEventListener('mousedown', nodeMouseDown);
       _body.removeEventListener('mousemove', nodeMouseMove);
       _body.removeEventListener('mouseup', nodeMouseUp);
-      _renderer.unbind('overNode', nodeMouseOver);
-      _renderer.unbind('outNode', treatOutNode);
+      _renderer.unbind('hovers', nodeMouseOver);
+      _renderer.unbind('hovers', treatOutNode);
     }
 
     // Calculates the global offset of the given element more accurately than
@@ -110,67 +123,67 @@
       _body.removeEventListener('mousemove', nodeMouseMove);
       _body.removeEventListener('mouseup', nodeMouseUp);
 
-      if (!_hoverStack.length) {
+      if (!_hoveredNode) {
         _node = null;
+      }
+      else {
+        // Drag node right after click instead of needing mouse out + mouse over:
+        setTimeout(function() {
+          // Set the current node to be the last hovered node
+          _node = _hoveredNode;
+          _mouse.addEventListener('mousedown', nodeMouseDown);
+        }, 0);
       }
     };
 
     function nodeMouseOver(event) {
+      if (event.data.enter.nodes.length == 0) {
+        return;
+      }
+      var n = event.data.enter.nodes[0];
+
       // Don't treat the node if it is already registered
-      if (_hoverIndex[event.data.node.id]) {
+      if (_hoveredNode && _hoveredNode.id === n.id) {
         return;
       }
 
-      // Add node to array of current nodes over
-      _hoverStack.push(event.data.node);
-      _hoverIndex[event.data.node.id] = true;
+      // Set reference to the hovered node
+      _hoveredNode = n;
 
-      if(_hoverStack.length && ! _isMouseDown) {
-        // Set the current node to be the last one in the array
-        _node = _hoverStack[_hoverStack.length - 1];
+      if(!_isMouseDown) {
+        // Set the current node to be the last hovered node
+        _node = _hoveredNode;
         _mouse.addEventListener('mousedown', nodeMouseDown);
       }
     };
 
     function treatOutNode(event) {
-      // Remove the node from the array
-      var indexCheck = _hoverStack.map(function(e) { return e; }).indexOf(event.data.node);
-      _hoverStack.splice(indexCheck, 1);
-      delete _hoverIndex[event.data.node.id];
+      if (event.data.leave.nodes.length == 0) {
+        return;
+      }
+      var n = event.data.leave.nodes[0];
 
-      if(_hoverStack.length && ! _isMouseDown) {
-        // On out, set the current node to be the next stated in array
-        _node = _hoverStack[_hoverStack.length - 1];
-      } else {
+      if (_hoveredNode && _hoveredNode.id === n.id) {
+        _hoveredNode = null;
+        _node = null;
+      }
+      else if (!_hoveredNode) {
         _mouse.removeEventListener('mousedown', nodeMouseDown);
       }
     };
 
     function nodeMouseDown(event) {
-      _isMouseDown = true;
-      var size = _s.graph.nodes().length;
+      if(!_enabled || event.which == 3) return; // Right mouse button pressed
 
-      // when there is only node in the graph, the plugin cannot apply
-      // linear interpolation. So treat it as if a user is dragging
-      // the graph
-      if (_node && size > 1) {
+      _isMouseDown = true;
+      if (_node && _s.graph.nodes().length > 0) {
+        _sticky = true;
         _mouse.removeEventListener('mousedown', nodeMouseDown);
         _body.addEventListener('mousemove', nodeMouseMove);
         _body.addEventListener('mouseup', nodeMouseUp);
 
-        // Do not refresh edgequadtree during drag:
-        var k,
-            c;
-        for (k in _s.cameras) {
-          c = _s.cameras[k];
-          if (c.edgequadtree !== undefined) {
-            c.edgequadtree._enabled = false;
-          }
-        }
-
         // Deactivate drag graph.
         _renderer.settings({mouseEnabled: false, enableHovering: false});
-        _s.refresh();
 
         _self.dispatchEvent('startdrag', {
           node: _node,
@@ -186,26 +199,25 @@
       _body.removeEventListener('mousemove', nodeMouseMove);
       _body.removeEventListener('mouseup', nodeMouseUp);
 
-      // Allow to refresh edgequadtree:
-      var k,
-          c;
-      for (k in _s.cameras) {
-        c = _s.cameras[k];
-        if (c.edgequadtree !== undefined) {
-          c.edgequadtree._enabled = true;
-        }
-      }
-
       // Activate drag graph.
       _renderer.settings({mouseEnabled: true, enableHovering: true});
-      _s.refresh();
 
       if (_drag) {
         _self.dispatchEvent('drop', {
-          node: _node,
+          node: _draggingNode,
           captor: event,
           renderer: _renderer
         });
+
+        if(_a) {
+          var activeNodes = _a.nodes();
+          for(var i = 0; i < activeNodes.length; i++) {
+            activeNodes[i].alphaX = undefined;
+            activeNodes[i].alphaY = undefined;
+          }
+        }
+
+        _s.refresh();
       }
       _self.dispatchEvent('dragend', {
         node: _node,
@@ -214,7 +226,7 @@
       });
 
       _drag = false;
-      _node = null;
+      _draggingNode = null;
     };
 
     function nodeMouseMove(event) {
@@ -229,56 +241,112 @@
         var offset = calculateOffset(_renderer.container),
             x = event.clientX - offset.left,
             y = event.clientY - offset.top,
-            cos = Math.cos(_camera.angle),
-            sin = Math.sin(_camera.angle),
+            cos = Math.cos(_renderer.camera.angle),
+            sin = Math.sin(_renderer.camera.angle),
             nodes = _s.graph.nodes(),
-            ref = [];
+            ref = [],
+            x2,
+            y2,
+            activeNodes,
+            n,
+            aux,
+            isHoveredNodeActive,
+            dist;
 
-        // Getting and derotating the reference coordinates.
-        for (var i = 0; i < 2; i++) {
-          var n = nodes[i];
-          var aux = {
-            x: n.x * cos + n.y * sin,
-            y: n.y * cos - n.x * sin,
-            renX: n[_prefix + 'x'],
-            renY: n[_prefix + 'y'],
-          };
-          ref.push(aux);
+        if (_a && _a.nbNodes() === nodes.length) return;
+
+        if (!_enabled || nodes.length < 2) return;
+
+        dist = sigma.utils.getDistance(x, y, _node[_prefix + 'x'],_node[_prefix + 'y']);
+
+        if (_sticky && dist < _node[_prefix + 'size']) return;
+        _sticky = false;
+
+        // Find two reference points and derotate them
+        // We take the first node as a first reference point and then try to find
+        // another node not aligned with it
+        for (var i = 0;;i++) {
+          if(!_enabled) break;
+
+          n = nodes[i];
+          if (n) {
+            aux = {
+              x: n.x * cos + n.y * sin,
+              y: n.y * cos - n.x * sin,
+              renX: n[_prefix + 'x'], //renderer X
+              renY: n[_prefix + 'y'], //renderer Y
+            };
+            ref.push(aux);
+          }
+          if(i == nodes.length - 1) { //we tried all nodes
+            break
+          }
+          if (i > 0) {
+            if (ref[0].x == ref[1].x || ref[0].y == ref[1].y) {
+              ref.pop() // drop last nodes and try to find another one
+            } else { // we managed to find two nodes not aligned
+              break
+            }
+          }
         }
 
+        var a = ref[0], b = ref[1];
+
         // Applying linear interpolation.
-        // if the nodes are on top of each other, we use the camera ratio to interpolate
-        if (ref[0].x === ref[1].x && ref[0].y === ref[1].y) {
-          var xRatio = (ref[0].renX === 0) ? 1 : ref[0].renX;
-          var yRatio = (ref[0].renY === 0) ? 1 : ref[0].renY;
-          x = (ref[0].x / xRatio) * (x - ref[0].renX) + ref[0].x;
-          y = (ref[0].y / yRatio) * (y - ref[0].renY) + ref[0].y;
-        } else {
-          var xRatio = (ref[1].renX - ref[0].renX) / (ref[1].x - ref[0].x);
-          var yRatio = (ref[1].renY - ref[0].renY) / (ref[1].y - ref[0].y);
+        var divx = (b.renX - a.renX);
+        if (divx === 0) divx = 1; //fix edge case where axis are aligned
 
-          // if the coordinates are the same, we use the other ratio to interpolate
-          if (ref[1].x === ref[0].x) {
-            xRatio = yRatio;
+        var divy = (b.renY - a.renY);
+        if (divy === 0) divy = 1; //fix edge case where axis are aligned
+
+        x = ((x - a.renX) / divx) * (b.x - a.x) + a.x;
+        y = ((y - a.renY) / divy) * (b.y - a.y) + a.y;
+
+        x2 = x * cos - y * sin;
+        y2 = y * cos + x * sin;
+
+        // Drag multiple nodes, Keep distance
+        if(_a) {
+          activeNodes = _a.nodes();
+
+          // If hovered node is active, drag active nodes
+          isHoveredNodeActive = (-1 < activeNodes.map(function(node) {
+            return node.id;
+          }).indexOf(_node.id));
+
+          if (isHoveredNodeActive) {
+            for(var i = 0; i < activeNodes.length; i++) {
+              // Delete old reference
+              if(_draggingNode != _node) {
+                activeNodes[i].alphaX = undefined;
+                activeNodes[i].alphaY = undefined;
+              }
+
+              // Calcul first position of activeNodes
+              if(!activeNodes[i].alphaX || !activeNodes[i].alphaY) {
+                activeNodes[i].alphaX = activeNodes[i].x - x;
+                activeNodes[i].alphaY = activeNodes[i].y - y;
+              }
+
+              // Move activeNodes to keep same distance between dragged nodes
+              // and active nodes
+              activeNodes[i].x = _node.x + activeNodes[i].alphaX;
+              activeNodes[i].y = _node.y + activeNodes[i].alphaY;
+            }
           }
-
-          if (ref[1].y === ref[0].y) {
-            yRatio = xRatio;
-          }
-
-          x = (x - ref[0].renX) / xRatio + ref[0].x;
-          y = (y - ref[0].renY) / yRatio + ref[0].y;
         }
 
         // Rotating the coordinates.
-        _node.x = x * cos - y * sin;
-        _node.y = y * cos + x * sin;
+        _node.x = x2;
+        _node.y = y2;
 
-        _s.refresh();
+        _s.refresh({skipIndexation: true});
 
         _drag = true;
+        _draggingNode = _node;
+
         _self.dispatchEvent('drag', {
-          node: _node,
+          node: _draggingNode,
           captor: event,
           renderer: _renderer
         });
@@ -290,22 +358,34 @@
    * Interface
    * ------------------
    *
-   * > var dragNodesListener = sigma.plugins.dragNodes(s, s.renderers[0]);
+   * > var dragNodesListener = sigma.plugins.dragNodes(s, s.renderers[0], a);
    */
   var _instance = {};
 
   /**
-   * @param  {sigma} s The related sigma instance.
-   * @param  {renderer} renderer The related renderer instance.
+   * @param  {sigma}                      s        The related sigma instance.
+   * @param  {renderer}                   renderer The related renderer instance.
+   * @param  {?sigma.plugins.activeState} a        The activeState plugin instance.
    */
-  sigma.plugins.dragNodes = function(s, renderer) {
+  sigma.plugins.dragNodes = function(s, renderer, a) {
     // Create object if undefined
     if (!_instance[s.id]) {
-      _instance[s.id] = new DragNodes(s, renderer);
+      // Handle drag events:
+      _instance[s.id] = new DragNodes(s, renderer, a);
     }
 
     s.bind('kill', function() {
       sigma.plugins.killDragNodes(s);
+    });
+
+    // disable on plugins.animate start.
+    s.bind('animate.start', function() {
+      _instance[s.id].disable();
+    });
+
+    // enable on plugins.animate end.
+    s.bind('animate.end', function() {
+      _instance[s.id].enable();
     });
 
     return _instance[s.id];

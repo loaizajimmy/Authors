@@ -17,7 +17,6 @@ module.exports = function(grunt) {
     'src/classes/sigma.classes.graph.js',
     'src/classes/sigma.classes.camera.js',
     'src/classes/sigma.classes.quad.js',
-    'src/classes/sigma.classes.edgequad.js',
 
     // Captors:
     'src/captors/sigma.captors.mouse.js',
@@ -39,9 +38,9 @@ module.exports = function(grunt) {
     'src/renderers/canvas/sigma.canvas.hovers.def.js',
     'src/renderers/canvas/sigma.canvas.nodes.def.js',
     'src/renderers/canvas/sigma.canvas.edges.def.js',
-    'src/renderers/canvas/sigma.canvas.edges.dotCurve.js',
+    'src/renderers/canvas/sigma.canvas.edges.curve.js',
     'src/renderers/canvas/sigma.canvas.edges.arrow.js',
-    'src/renderers/canvas/sigma.canvas.edges.dotCurvedArrow.js',
+    'src/renderers/canvas/sigma.canvas.edges.curvedArrow.js',
     'src/renderers/canvas/sigma.canvas.edgehovers.def.js',
     'src/renderers/canvas/sigma.canvas.edgehovers.curve.js',
     'src/renderers/canvas/sigma.canvas.edgehovers.arrow.js',
@@ -51,6 +50,7 @@ module.exports = function(grunt) {
     'src/renderers/svg/sigma.svg.nodes.def.js',
     'src/renderers/svg/sigma.svg.edges.def.js',
     'src/renderers/svg/sigma.svg.edges.curve.js',
+    'src/renderers/svg/sigma.svg.edges.curvedArrow.js',
     'src/renderers/svg/sigma.svg.labels.def.js',
     'src/renderers/svg/sigma.svg.hovers.def.js',
 
@@ -69,44 +69,70 @@ module.exports = function(grunt) {
   npmJsFiles.splice(2, 0, 'src/sigma.export.js');
 
   var plugins = [
+    'helpers.graph',
+    'exporters.gexf',
+    'exporters.graphml',
+    'exporters.json',
+    'exporters.spreadsheet',
     'exporters.svg',
-    'layout.forceAtlas2',
-    'layout.noverlap',
-    'neo4j.cypher',
+    'exporters.xlsx',
+    'exporters.image',
+    'layouts.dagre',
+    'layouts.forceAtlas2',
+    'layouts.forceLink',
+    'layouts.fruchtermanReingold',
+    'layouts.noverlap',
+    'parsers.cypher',
     'parsers.gexf',
     'parsers.json',
     'pathfinding.astar',
+    'plugins.activeState',
     'plugins.animate',
+    'plugins.colorbrewer',
+    'plugins.design',
+    'plugins.legend',
     'plugins.dragNodes',
+    'plugins.edgeSiblings',
     'plugins.filter',
+    'plugins.fullScreen',
+    'plugins.generators',
+    'plugins.keyboard',
+    'plugins.lasso',
+    'plugins.leaflet',
+    'plugins.locate',
     'plugins.neighborhoods',
+    'plugins.poweredBy',
+    'plugins.select',
+    'plugins.tooltips',
     'plugins.relativeSize',
     'renderers.customEdgeShapes',
-    'renderers.customShapes',
-    'renderers.edgeDots',
     'renderers.edgeLabels',
-    'renderers.parallelEdges',
-    'renderers.snapshot',
-    'statistics.HITS'
+    'renderers.glyphs',
+    'renderers.halo',
+    'renderers.linkurious',
+    'statistics.HITS',
+    'statistics.louvain'
   ];
 
-  var pluginFiles = [],
-      subGrunts = {};
+  var pluginFiles = [], subGrunts = {};
 
   plugins.forEach(function(p) {
-    var dir = 'plugins/sigma.' + p + '/';
-
-    if (fs.existsSync(dir + 'Gruntfile.js'))
+    var dir = './plugins/sigma.' + p + '/';
+    if (fs.existsSync(dir + 'Gruntfile.js')) {
       subGrunts[p] = {
         gruntfile: dir + 'Gruntfile.js'
       };
-    else
+      pluginFiles.push(dir + 'worker.js');
+      pluginFiles.push(dir + 'supervisor.js');
+    } else {
       pluginFiles.push(dir + '**/*.js');
+    }
   });
 
   // Project configuration:
   grunt.initConfig({
     pkg: grunt.file.readJSON('package.json'),
+    clean: ['build/'],
     grunt: subGrunts,
     closureLint: {
       app: {
@@ -143,7 +169,17 @@ module.exports = function(grunt) {
           'build/sigma.min.js': coreJsFiles
         },
         options: {
-          banner: '/* sigma.js - <%= pkg.description %> - Version: <%= pkg.version %> - Author: Alexis Jacomy, Sciences-Po Médialab - License: MIT */\n'
+          sourceMap: true,
+          banner: '/* linkurious.js - <%= pkg.description %> - Version: <%= pkg.version %> - Author: Linkurious SAS - License: GPLv3 */\n'
+        }
+      },
+      prod_plugins: {
+        files: {
+          'build/plugins.min.js': pluginFiles
+        },
+        options: {
+          sourceMap: true,
+          banner: '/* linkurious.js - <%= pkg.description %> - Version: <%= pkg.version %> - Author: Linkurious SAS - License: GPLv3 */\n'
         }
       },
       plugins: {
@@ -151,8 +187,11 @@ module.exports = function(grunt) {
           var dest = 'build/' + path.replace(/\/\*\*\/\*\.js$/, '.min.js');
           res[dest] = path;
           return res;
-        }, {})
-      }
+        }, {}),
+        options: {
+          sourceMap: true
+        }
+      },
     },
     concat: {
       options: {
@@ -161,6 +200,10 @@ module.exports = function(grunt) {
       dist: {
         src: coreJsFiles,
         dest: 'build/sigma.js'
+      },
+      plugins: {
+        src: pluginFiles,
+        dest: 'build/plugins.js'
       },
       require: {
         src: npmJsFiles,
@@ -179,9 +222,10 @@ module.exports = function(grunt) {
     },
     zip: {
       release: {
-        dest: 'build/release-v<%= pkg.version %>.zip',
+        dest: 'build/<%= pkg.name %>-v<%= pkg.version %>.zip',
         src: [
           'README.md',
+          'CHANGELOG.md',
           'build/sigma.min.js',
           'build/plugins/*.min.js'
         ],
@@ -195,10 +239,9 @@ module.exports = function(grunt) {
   require('load-grunt-tasks')(grunt);
 
   // By default, will check lint, hint, test and minify:
-  grunt.registerTask('default', ['closureLint', 'jshint', 'qunit', 'sed', 'grunt', 'uglify']);
-  grunt.registerTask('release', ['closureLint', 'jshint', 'qunit', 'sed', 'grunt', 'uglify', 'zip']);
-  grunt.registerTask('npmPrePublish', ['uglify:plugins', 'grunt', 'concat:require']);
-  grunt.registerTask('build', ['uglify', 'grunt', 'concat:require']);
+  grunt.registerTask('default', ['closureLint', 'jshint', 'qunit', 'sed', 'clean', 'uglify', 'concat', 'grunt']);
+  grunt.registerTask('release', ['closureLint', 'jshint', 'qunit', 'sed', 'clean', 'uglify', 'concat', 'grunt', 'zip']);
+  grunt.registerTask('build', ['clean', 'uglify', 'concat', 'grunt']);
   grunt.registerTask('test', ['qunit']);
 
   // For travis-ci.org, only launch tests:

@@ -12,6 +12,121 @@
   /**
    * MISC UTILS:
    */
+
+
+  /**
+   * SigmaMap wraps an ES6 Object. Methods set, get, has, forEach, delete, and clear
+   * have the same signature than the corresponding Map methods.
+   */
+  function SigmaMap() {
+    var self = this;
+    var _store;
+
+    if (!sigma.forceES5 &&
+      typeof Map !== 'undefined' &&
+      Map.prototype.keys !== undefined &&
+      Map.prototype.forEach !== undefined
+      && Array.from !== undefined) {
+
+      _store = new Map();
+
+      Object.defineProperty(this, 'size', {
+        get: function() { return _store.size; },
+        set: undefined,
+        enumerable: true
+      });
+
+      this.set = function(key, value) { _store.set('' + key, value); };
+      this.get = function(key) { return _store.get('' + key); };
+      this.has = function(key) { return _store.has('' + key); };
+      this.forEach = function(func) { return _store.forEach(func); };
+      this.delete = function(key) { return _store.delete('' + key); };
+      this.clear = function() { _store.clear(); };
+
+      this.keyList = function () {
+        return Array.from(_store.keys());
+      };
+
+      this.valueList = function () {
+        var values = [];
+        _store.forEach(function(val) {
+          values.push(val);
+        });
+        return values;
+      };
+    }
+    else {
+      _store = Object.create(null);
+      this.size = 0;
+
+      this.keyList = function () {
+        return Object.keys(_store).filter(function(key) {
+          return _store[key] !== undefined;
+        });
+      };
+
+      this.valueList = function () {
+        var keys = Object.keys(_store);
+        var values = [];
+
+        for (var i = 0; i < keys.length; i++) {
+          var val = _store[keys[i]];
+          if (val !== undefined) {
+            values.push(val);
+          }
+        }
+        return values;
+      };
+
+      this.set = function (key, value) {
+        if (_store[key] === undefined) self.size++;
+
+        _store[key] = value;
+      };
+
+      this.get = function (key) {
+        return _store[key];
+      };
+
+      this.has = function (key) {
+        return _store[key] !== undefined;
+      };
+
+      this.forEach = function (func) {
+        var keys = Object.keys(_store);
+        for (var i = 0; i < keys.length; ++i) {
+          var key = keys[i],
+              obj = _store[key];
+
+          if (typeof obj !== 'undefined') {
+            func(obj, key);
+          }
+        }
+      };
+
+      this.delete = function (key) {
+        var value = _store[key];
+        _store[key] = undefined;
+
+        if (value !== undefined) self.size--;
+
+        return value;
+      };
+
+      this.clear = function () {
+        for (var k in _store)
+          if (!('hasOwnProperty' in _store) || _store.hasOwnProperty(k))
+            delete _store[k];
+
+        _store = Object.create(null);
+        self.size = 0;
+      };
+    }
+  }
+
+  sigma.utils.map = SigmaMap;
+
+
   /**
    * This function takes any number of objects as arguments, copies from each
    * of these objects each pair key/value into a new object, and finally
@@ -240,16 +355,18 @@
   /**
    * Return the control point coordinates for a quadratic bezier curve.
    *
-   * @param  {number} x1  The X coordinate of the start point.
-   * @param  {number} y1  The Y coordinate of the start point.
-   * @param  {number} x2  The X coordinate of the end point.
-   * @param  {number} y2  The Y coordinate of the end point.
-   * @return {x,y}        The control point coordinates.
+   * @param  {number}  x1  The X coordinate of the start point.
+   * @param  {number}  y1  The Y coordinate of the start point.
+   * @param  {number}  x2  The X coordinate of the end point.
+   * @param  {number}  y2  The Y coordinate of the end point.
+   * @param  {?number} cc  The curvature coefficients.
+   * @return {x,y}         The control point coordinates.
    */
-  sigma.utils.getQuadraticControlPoint = function(x1, y1, x2, y2) {
+  sigma.utils.getQuadraticControlPoint = function(x1, y1, x2, y2, cc) {
+    cc = this.extend(cc, { x: 2, y: 4 });
     return {
-      x: (x1 + x2) / 2 + (y2 - y1) / 4,
-      y: (y1 + y2) / 2 + (x1 - x2) / 4
+      x: (x1 + x2) / cc.x + (y2 - y1) / cc.y,
+      y: (y1 + y2) / cc.x + (x1 - x2) / cc.y
     };
   };
 
@@ -270,8 +387,8 @@
   sigma.utils.getPointOnQuadraticCurve = function(t, x1, y1, x2, y2, xi, yi) {
     // http://stackoverflow.com/a/5634528
     return {
-      x: Math.pow(1 - t, 2) * x1 + 2 * (1 - t) * t * xi + Math.pow(t, 2) * x2,
-      y: Math.pow(1 - t, 2) * y1 + 2 * (1 - t) * t * yi + Math.pow(t, 2) * y2
+      x: (1 - t) * (1 - t) * x1 + 2 * (1 - t) * t * xi + t * t * x2,
+      y: (1 - t) * (1 - t) * y1 + 2 * (1 - t) * t * yi + t * t * y2
     };
   };
 
@@ -295,10 +412,10 @@
     function(t, x1, y1, x2, y2, cx, cy, dx, dy) {
     // http://stackoverflow.com/a/15397596
     // Blending functions:
-    var B0_t = Math.pow(1 - t, 3),
-        B1_t = 3 * t * Math.pow(1 - t, 2),
-        B2_t = 3 * Math.pow(t, 2) * (1 - t),
-        B3_t = Math.pow(t, 3);
+    var B0_t = (1 - t) * (1 - t) * (1 - t),
+        B1_t = 3 * t * (1 - t) * (1 - t),
+        B2_t = 3 * t * t * (1 - t),
+        B3_t = t * t * t;
 
     return {
       x: (B0_t * x1) + (B1_t * cx) + (B2_t * dx) + (B3_t * x2),
@@ -336,7 +453,7 @@
    * @return {number}     The euclidian distance.
    */
   sigma.utils.getDistance = function(x0, y0, x1, y1) {
-    return Math.sqrt(Math.pow(x1 - x0, 2) + Math.pow(y1 - y0, 2));
+    return Math.sqrt((x1 - x0) * (x1 - x0) + (y1 - y0) * (y1 - y0));
   };
 
   /**
@@ -417,14 +534,50 @@
     *                          segment, false otherwise.
   */
   sigma.utils.isPointOnSegment = function(x, y, x1, y1, x2, y2, epsilon) {
-    // http://stackoverflow.com/a/328122
-    var crossProduct = Math.abs((y - y1) * (x2 - x1) - (x - x1) * (y2 - y1)),
-        d = sigma.utils.getDistance(x1, y1, x2, y2),
-        nCrossProduct = crossProduct / d; // normalized cross product
+    return sigma.utils.distancePointToSegment(x, y, x1, y1, x2, y2) < epsilon;
+  };
 
-    return (nCrossProduct < epsilon &&
-     Math.min(x1, x2) <= x && x <= Math.max(x1, x2) &&
-     Math.min(y1, y2) <= y && y <= Math.max(y1, y2));
+  /**
+    * Compute the distance of a point to a line segment.
+    *
+    * @param  {number} x       The X coordinate of the point to check.
+    * @param  {number} y       The Y coordinate of the point to check.
+    * @param  {number} x1      The X coordinate of the line start point.
+    * @param  {number} y1      The Y coordinate of the line start point.
+    * @param  {number} x2      The X coordinate of the line end point.
+    * @param  {number} y2      The Y coordinate of the line end point.
+    * @return {number}         Distance to the segment
+  */
+  sigma.utils.distancePointToSegment = function(x, y, x1, y1, x2, y2) {
+    // http://stackoverflow.com/a/6853926/1075195
+    var A = x - x1,
+        B = y - y1,
+        C = x2 - x1,
+        D = y2 - y1,
+        dot = A * C + B * D,
+        len_sq = C * C + D * D,
+        param = -1,
+        xx, yy;
+
+    if (len_sq !== 0) //in case of 0 length line
+        param = dot / len_sq;
+
+    if (param < 0) {
+      xx = x1;
+      yy = y1;
+    }
+    else if (param > 1) {
+      xx = x2;
+      yy = y2;
+    }
+    else {
+      xx = x1 + param * C;
+      yy = y1 + param * D;
+    }
+
+    var dx = x - xx;
+    var dy = y - yy;
+    return Math.sqrt(dx * dx + dy * dy);
   };
 
   /**
@@ -651,7 +804,7 @@
         sigma.utils.getPixelRatio();
     return {
       x: sigma.utils.getWidth(e) / (2 * ratio),
-      y: sigma.utils.getHeight(e) / (2 * ratio)
+      y: sigma.utils.getHeight(e) / (2 * ratio),
     };
   };
 
@@ -827,6 +980,27 @@
    * WEBGL UTILS:
    * ************
    */
+
+  /**
+   * Return true if the browser support webgl
+   *
+   * @return {boolean}
+   */
+  sigma.utils.isWebGLSupported = function() {
+    var canvas,
+        webgl = !!window.WebGLRenderingContext;
+    if (webgl) {
+      canvas = document.createElement('canvas');
+      try {
+        return !!(
+          canvas.getContext('webgl') ||
+          canvas.getContext('experimental-webgl')
+        );
+      } catch (e) {}
+    }
+    return false;
+  };
+
   /**
    * Loads a WebGL shader and returns it.
    *
@@ -905,9 +1079,6 @@
 
     return program;
   };
-
-
-
 
   /**
    * *********
@@ -1019,4 +1190,189 @@
       a20 * b02 + a21 * b12 + a22 * b22
     ];
   };
+
+
+  /**
+   * ************
+   * CANVAS UTILS:
+   * ************
+   */
+  /**
+   * Calculate the width of the text either approximated via the font size or
+   * via the more expensive but accurate context.measureText.
+   *
+   * @param  {CanvasRenderingContext2D} context  The canvas context.
+   * @param  {boolean}     approximate   Approximate or not.
+   * @param  {integer}     fontSize      Font size of the text.
+   * @param  {string}      text          The text to use.
+   *
+   * @return {float}       Returns the width.
+   */
+   sigma.utils.canvas = {};
+   sigma.utils.canvas.getTextWidth =
+        function(context, approximate, fontSize, text) {
+
+    if (!text) return 0;
+
+    return approximate ? 0.6 * text.length * fontSize :
+      context.measureText(text).width;
+  };
+
+  /**
+   * Set the shadow values of the specified context according to the level
+   * to create visual depth.
+   *
+   * @param  {number}     level     The level (from 1 to 5).
+   * @param  {CanvasRenderingContext2D} context  The canvas context.
+   */
+  sigma.utils.canvas.setLevel = function(level, context) {
+    if (level) {
+      context.shadowOffsetX = 0;
+      // inspired by Material Design shadows, level from 1 to 5:
+      switch(level) {
+        case 1:
+          context.shadowOffsetY = 1.5;
+          context.shadowBlur = 4;
+          context.shadowColor = 'rgba(0,0,0,0.36)';
+          break;
+        case 2:
+          context.shadowOffsetY = 3;
+          context.shadowBlur = 12;
+          context.shadowColor = 'rgba(0,0,0,0.39)';
+          break;
+        case 3:
+          context.shadowOffsetY = 6;
+          context.shadowBlur = 12;
+          context.shadowColor = 'rgba(0,0,0,0.42)';
+          break;
+        case 4:
+          context.shadowOffsetY = 10;
+          context.shadowBlur = 20;
+          context.shadowColor = 'rgba(0,0,0,0.47)';
+          break;
+        case 5:
+          context.shadowOffsetY = 15;
+          context.shadowBlur = 24;
+          context.shadowColor = 'rgba(0,0,0,0.52)';
+          break;
+      }
+    }
+  };
+
+  /**
+   * Reset the shadow values.
+   *
+   * @param  {CanvasRenderingContext2D} context  The canvas context.
+   */
+  sigma.utils.canvas.resetLevel = function(context) {
+    context.shadowOffsetY = 0;
+    context.shadowBlur = 0;
+    context.shadowColor = '#000000';
+  };
+
+  // incrementally scaled, not automatically resized for now
+  // (ie. possible memory leak if there are many graph load / unload)
+  var imgCache = {};
+
+  /**
+   * Draw an image inside the specified node on the canvas.
+   *
+   * @param  {object}                   node     The node object.
+   * @param  {number}                   x        The node x coordinate.
+   * @param  {number}                   y        The node y coordinate.
+   * @param  {number}                   size     The node size.
+   * @param  {CanvasRenderingContext2D} context  The canvas context.
+   * @param  {string}                   imgCrossOrigin Cross-origin URL or '*'.
+   * @param  {number}                  threshold Display if node size is larger
+   * @param  {function}                 clipFn    The clipping shape function.
+   */
+  sigma.utils.canvas.drawImage =
+    function(node, x, y, size, context, imgCrossOrigin, threshold, clipFn) {
+
+    if(!node.image || !node.image.url || size < threshold) return;
+
+    var url = node.image.url;
+    var ih = node.image.h || 1; // 1 is arbitrary, anyway only the ratio counts
+    var iw = node.image.w || 1;
+    var scale = node.image.scale || 1;
+    var clip = node.image.clip || 1;
+
+    // create new IMG or get from imgCache
+    var image = imgCache[url];
+    if(!image) {
+      image = document.createElement('IMG');
+      image.setAttribute('crossOrigin', imgCrossOrigin);
+      image.src = url;
+      image.onload = function() {
+        window.dispatchEvent(new Event('resize'));
+      };
+      imgCache[url] = image;
+    }
+
+    // calculate position and draw
+    var xratio = (iw < ih) ? (iw / ih) : 1;
+    var yratio = (ih < iw) ? (ih / iw) : 1;
+    var r = size * scale;
+
+    context.save(); // enter clipping mode
+      context.beginPath();
+    if (typeof clipFn === 'function') {
+      clipFn(node, x, y, size, context, clip);
+    }
+    else {
+      // Draw the clipping disc:
+      context.arc(x, y, size * clip, 0, Math. PI * 2, true);
+    }
+    context.closePath();
+    context.clip();
+
+    // Draw the actual image
+    context.drawImage(
+      image,
+      x + Math.sin(-3.142 / 4) * r * xratio,
+      y - Math.cos(-3.142 / 4) * r * yratio,
+      r * xratio * 2 * Math.sin(-3.142 / 4) * (-1),
+      r * yratio * 2 * Math.cos(-3.142 / 4)
+    );
+    context.restore(); // exit clipping mode
+  };
+
+  /**
+   * Draw an icon inside the specified node on the canvas.
+   *
+   * @param  {object}                   node     The node object.
+   * @param  {number}                   x        The node x coordinate.
+   * @param  {number}                   y        The node y coordinate.
+   * @param  {number}                   size     The node size.
+   * @param  {CanvasRenderingContext2D} context  The canvas context.
+   * @param  {number}                  threshold Display if node size is larger
+   */
+  sigma.utils.canvas.drawIcon = function(node, x, y, size, context, threshold){
+    if(!node.icon || size < threshold) return;
+
+    var font = node.icon.font || 'Arial',
+        fgColor = node.icon.color || '#F00',
+        text = node.icon.content || '?',
+        px = node.icon.x || 0.5,
+        py = node.icon.y || 0.5,
+        height = size,
+        width = size;
+
+    var fontSizeRatio = 0.70;
+    if (typeof node.icon.scale === "number") {
+      fontSizeRatio = Math.abs(Math.max(0.01, node.icon.scale));
+    }
+
+    var fontSize = Math.round(fontSizeRatio * height);
+
+    context.save();
+    context.fillStyle = fgColor;
+
+    context.font = '' + fontSize + 'px ' + font;
+    context.textAlign = 'center';
+    context.textBaseline = 'middle';
+    context.fillText(text, x, y);
+    context.restore();
+  };
+
 }).call(this);

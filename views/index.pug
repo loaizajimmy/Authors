@@ -16,7 +16,7 @@ html
                 .seven.wide.column
                     .ui.center.aligned.segment#Title
                         h1(class='title') Busca tu red
-                        i(class='big blue snowflake icon')
+                        img(src='/img/logo.png')
 
                     .four.wide.column#Buscador
                         .ui.inverted.segment
@@ -25,18 +25,18 @@ html
                                     label ¿Tema a buscar?
                                     input(placeholder='Ingresa un tema' id='tema')
                                 .ui.divider
-                                button.ui.inverted.blue.button(id='btnBuscar') Buscar
+                                .center.aligned
+                                    button.ui.inverted.blue.button(id='btnBuscar') Buscar
 
                             .ui.divider
+                            .center.aligned.option
+                                a(href='#') Download for Gephi
+                                a(href='#') Download for NodeXL
+                                a(href='#') View as JSON
 
                 .nine.wide.column
-                    #graph
-
-                .ten.wide.column
-                    .center.aligned.option
-                        a(href='#') Download for Gephi
-                        a(href='#') Download for NodeXL
-                        a(href='#') View as JSON
+                    #graph-container
+                        #graph
 
 
         //JQuery
@@ -46,7 +46,7 @@ html
         script(src="/plugins/Semantic-UI-2.2/semantic.js")
 
 
-        include scriptsSigma
+        include scriptSigma2
 
         //own scripts
         script(src="/js/indexScript.js")
