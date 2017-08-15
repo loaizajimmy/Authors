@@ -1,0 +1,33 @@
+/* Tag */
+body {
+    background: black;
+}
+
+/* Class */
+.top-space {
+    padding-top: 100px;
+    margin-top: 100px;
+}
+
+.no-background {
+    background: transparent;
+}
+.title{
+    font-size: 3em;
+    color: blue;
+}
+.option a{
+    padding-right: 2em;
+}
+/* ID */
+#Title {
+    background: transparent;
+}
+#Buscador{
+    padding-top: 100px;
+}
+#graph{
+    background: cornsilk;
+    height: 100%;
+    border: 1px solid red;
+}

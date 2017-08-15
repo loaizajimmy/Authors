@@ -1,0 +1,52 @@
+html
+    head
+        title Authors
+
+        //Semantic Ui
+        link(rel='stylesheet' href="/plugins/Semantic-UI-2.2/semantic.css")
+
+        //own styles
+        link(rel='stylesheet' href="/css/app.css")
+
+
+
+    body
+        .ui.container#miDIv
+            .ui.grid
+                .seven.wide.column
+                    .ui.center.aligned.segment#Title
+                        h1(class='title') Busca tu red
+                        i(class='big blue snowflake icon')
+
+                    .four.wide.column#Buscador
+                        .ui.inverted.segment
+                            .ui.inverted.form
+                                .field
+                                    label ¿Tema a buscar?
+                                    input(placeholder='Ingresa un tema' id='tema')
+                                .ui.divider
+                                button.ui.inverted.blue.button(id='btnBuscar') Buscar
+
+                            .ui.divider
+
+                .nine.wide.column
+                    #graph
+
+                .ten.wide.column
+                    .center.aligned.option
+                        a(href='#') Download for Gephi
+                        a(href='#') Download for NodeXL
+                        a(href='#') View as JSON
+
+
+        //JQuery
+        script(src="/plugins/JQuery/jquery-3.2.1.js")
+
+        //Semantic Ui
+        script(src="/plugins/Semantic-UI-2.2/semantic.js")
+
+
+        include scriptsSigma
+
+        //own scripts
+        script(src="/js/indexScript.js")
